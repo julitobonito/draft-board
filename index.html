@@ -3,61 +3,61 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-<title>Draft Room</title>
-<meta name="theme-color" content="#0e1116" />
+<title>Juli's Draft Room</title>
+<meta name="theme-color" content="#1d2d1b" />
 <link rel="manifest" href="./manifest.webmanifest" />
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="Draft Room" />
+<meta name="apple-mobile-web-app-title" content="JDB" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
   :root{
-    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --line:#28303c;
-    --text:#e6e9ef; --muted:#8b95a5; --gold:#f5c451;
+    --bg:#1d2d1b; --panel:#26361f; --panel2:#2e3f26; --line:#3a4d32;
+    --text:#e8ece3; --muted:#98a88f; --gold:#f5c451;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;}
   #app{max-width:640px;margin:0 auto;min-height:100vh;border-left:1px solid var(--line);border-right:1px solid var(--line);
        padding-bottom:env(safe-area-inset-bottom);}
   .head{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(16px + env(safe-area-inset-top)) 16px 12px;border-bottom:1px solid var(--line);}
-  .title{display:flex;align-items:baseline;justify-content:space-between;}
-  .kicker{font-family:'Oswald',sans-serif;font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:20px;}
+  .title{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:2px 10px;}
+  .kicker{font-family:'Oswald',sans-serif;font-weight:700;letter-spacing:.06em;text-transform:uppercase;font-size:16px;}
   .picks{font-size:12px;color:var(--muted);}
   .seg{display:flex;gap:6px;margin-top:12px;}
   .segbtn{flex:1;display:flex;flex-direction:column;gap:2px;align-items:flex-start;padding:9px 12px;background:var(--panel);
           border:1px solid var(--line);border-radius:9px;cursor:pointer;color:var(--muted);text-align:left;font:inherit;}
-  .segbtn.on{background:var(--panel2);border-color:#3a4656;color:var(--text);}
+  .segbtn.on{background:var(--panel2);border-color:#4a5f40;color:var(--text);}
   .segbtn b{font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;letter-spacing:.03em;}
   .segbtn span{font-size:11px;}
   .scoring{margin:9px 2px 0;font-size:11.5px;color:var(--muted);}
   .viewseg{margin-top:12px;}
   .viewbtn{flex:1;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--muted);
            font:600 13px 'Inter',sans-serif;cursor:pointer;}
-  .viewbtn.on{background:var(--gold);border-color:var(--gold);color:#0e1116;}
+  .viewbtn.on{background:var(--gold);border-color:var(--gold);color:#1d2d1b;}
   .controls{position:sticky;top:0;z-index:4;padding:12px 16px;background:var(--bg);border-bottom:1px solid var(--line);}
   .search{width:100%;padding:9px 12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:14px;outline:none;}
-  .search::placeholder{color:#5f6b7c;}
-  .search:focus{border-color:#3a4656;}
+  .search::placeholder{color:#6f7f66;}
+  .search:focus{border-color:#4a5f40;}
   .chips{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
   .chip{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:var(--panel);border:1px solid var(--line);
         border-radius:20px;color:var(--text);font:600 12px 'Inter',sans-serif;cursor:pointer;}
-  .chip.on{background:#e6e9ef;color:#0e1116;border-color:#e6e9ef;}
+  .chip.on{background:#e8ece3;color:#1d2d1b;border-color:#e8ece3;}
   .chip .n{font-size:10px;opacity:.7;font-weight:500;}
   .list{padding:4px 12px 24px;}
   .tier{margin-top:14px;}
   .tier-head{display:flex;justify-content:space-between;align-items:center;font-family:'Oswald',sans-serif;letter-spacing:.08em;
              text-transform:uppercase;font-size:12px;color:var(--muted);padding:4px 4px 8px;border-bottom:1px dashed var(--line);}
   .tier-head .n{font-size:11px;}
-  .row{display:flex;align-items:center;gap:10px;padding:11px 8px;border-bottom:1px solid #1b222c;cursor:pointer;}
+  .row{display:flex;align-items:center;gap:10px;padding:11px 8px;border-bottom:1px solid #243021;cursor:pointer;}
   .row:active{background:var(--panel);}
   .rank{width:26px;text-align:center;font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;color:var(--muted);flex:none;}
   .postag{flex:none;width:34px;text-align:center;padding:3px 0;border-radius:5px;font-family:'Oswald',sans-serif;font-weight:700;
-          font-size:11px;color:#0e1116;letter-spacing:.03em;}
+          font-size:11px;color:#1d2d1b;letter-spacing:.03em;}
   .name{flex:1;font-size:14.5px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .team{font-size:11px;color:var(--muted);flex:none;letter-spacing:.03em;}
-  .star{flex:none;width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:#586274;
+  .star{flex:none;width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:#6f7f66;
         font-size:16px;cursor:pointer;line-height:1;}
   .star:active{color:var(--gold);border-color:var(--gold);}
   .draftedwrap{margin-top:22px;border-top:1px solid var(--line);padding-top:10px;}
@@ -71,7 +71,7 @@
   .team-head{display:flex;justify-content:space-between;align-items:center;font-family:'Oswald',sans-serif;text-transform:uppercase;
              letter-spacing:.08em;font-size:13px;color:var(--text);padding-bottom:8px;border-bottom:1px solid var(--line);}
   .team-count{font-size:11px;color:var(--muted);}
-  .slot{display:flex;align-items:center;gap:11px;padding:11px 6px;border-bottom:1px solid #1b222c;}
+  .slot{display:flex;align-items:center;gap:11px;padding:11px 6px;border-bottom:1px solid #243021;}
   .slot.empty{opacity:.5;}
   .slot-label{flex:none;min-width:44px;text-align:center;padding:4px 6px;border-radius:6px;font-family:'Oswald',sans-serif;
               font-weight:700;font-size:11px;letter-spacing:.04em;border:1px solid var(--line);}
@@ -80,7 +80,7 @@
   .slot-empty{flex:1;font-size:13px;color:var(--muted);font-style:italic;}
   .empty{text-align:center;color:var(--muted);font-size:13px;padding:26px 12px;}
   .foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-top:1px solid var(--line);flex-wrap:wrap;}
-  .src{font-size:11px;color:#6b7686;flex:1;min-width:180px;}
+  .src{font-size:11px;color:#7c8c73;flex:1;min-width:180px;}
   .reset{background:var(--panel);border:1px solid var(--line);color:var(--muted);padding:7px 12px;border-radius:7px;font:600 12px 'Inter',sans-serif;cursor:pointer;}
   .reset.yes{color:#f26d6d;border-color:#5a2b2b;}
   .reset-confirm{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
@@ -162,7 +162,7 @@ function render(){
   // header
   const head = el("div",{class:"head"});
   head.append(el("div",{class:"title"},
-    el("span",{class:"kicker"},"Draft Room"),
+    el("span",{class:"kicker"},"Juli's Draft Room"),
     el("span",{class:"picks"}, picks+" off the board")));
   const fmt = el("div",{class:"seg"});
   for(const key of ["redraft","dynasty"]){
@@ -207,7 +207,7 @@ function renderBoard(app, cfg, statusMap){
   const chips=el("div",{class:"chips"});
   for(const p of ["ALL",...POS_ORDER]){
     const on=state.posFilter===p;
-    const style = on && p!=="ALL" ? "background:"+POS_COLOR[p]+";color:#0e1116;border-color:"+POS_COLOR[p] : "";
+    const style = on && p!=="ALL" ? "background:"+POS_COLOR[p]+";color:#1d2d1b;border-color:"+POS_COLOR[p] : "";
     const c=el("button",{class:"chip"+(on?" on":""), style, onclick:()=>{state.posFilter=p;render();}}, p);
     if(p!=="ALL") c.append(el("span",{class:"n"}, String(remaining[p])));
     chips.append(c);
@@ -269,8 +269,8 @@ function renderTeam(app, cfg, mt){
   wrap.append(el("div",{class:"team-head"}, el("span",{},"Starters"), el("span",{class:"team-count"}, mt.filled+"/"+mt.total+" filled")));
   mt.slots.forEach(s=>{
     const row=el("div",{class:"slot"+(s.player?"":" empty")});
-    const style = s.player ? "background:"+(POS_COLOR[s.player.pos]||"#7a8697")+";color:#0e1116"
-                           : "color:#8b95a5;background:transparent";
+    const style = s.player ? "background:"+(POS_COLOR[s.player.pos]||"#7a8697")+";color:#1d2d1b"
+                           : "color:#98a88f;background:transparent";
     row.append(el("span",{class:"slot-label", style}, s.slot));
     if(s.player){
       row.append(el("span",{class:"slot-name"}, s.player.name));
@@ -282,7 +282,7 @@ function renderTeam(app, cfg, mt){
   if(mt.bench.length===0) wrap.append(el("p",{class:"empty"},"No bench players yet. Tap ★ on the board to add players."));
   mt.bench.forEach(p=>{
     const row=el("div",{class:"slot"});
-    row.append(el("span",{class:"slot-label", style:"background:"+(POS_COLOR[p.pos]||"#7a8697")+";color:#0e1116"}, p.pos));
+    row.append(el("span",{class:"slot-label", style:"background:"+(POS_COLOR[p.pos]||"#7a8697")+";color:#1d2d1b"}, p.pos));
     row.append(el("span",{class:"slot-name"}, p.name));
     row.append(el("span",{class:"slot-team"}, p.team));
     wrap.append(row);

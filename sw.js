@@ -3,7 +3,7 @@
    Rankings live in ./data/*.json and are fetched network-first, so a data
    refresh shows up automatically the next time the app is opened online —
    no version bump needed for ranking updates. */
-const SHELL_VERSION = "v1";
+const SHELL_VERSION = "v2";
 const SHELL_CACHE = "draftroom-shell-" + SHELL_VERSION;
 const DATA_CACHE  = "draftroom-data";
 const SHELL = [
