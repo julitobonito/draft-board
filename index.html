@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<title>Draft Room</title>
+<meta name="theme-color" content="#0e1116" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Draft Room" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c232d; --line:#28303c;
+    --text:#e6e9ef; --muted:#8b95a5; --gold:#f5c451;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;}
+  #app{max-width:640px;margin:0 auto;min-height:100vh;border-left:1px solid var(--line);border-right:1px solid var(--line);
+       padding-bottom:env(safe-area-inset-bottom);}
+  .head{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(16px + env(safe-area-inset-top)) 16px 12px;border-bottom:1px solid var(--line);}
+  .title{display:flex;align-items:baseline;justify-content:space-between;}
+  .kicker{font-family:'Oswald',sans-serif;font-weight:700;letter-spacing:.14em;text-transform:uppercase;font-size:20px;}
+  .picks{font-size:12px;color:var(--muted);}
+  .seg{display:flex;gap:6px;margin-top:12px;}
+  .segbtn{flex:1;display:flex;flex-direction:column;gap:2px;align-items:flex-start;padding:9px 12px;background:var(--panel);
+          border:1px solid var(--line);border-radius:9px;cursor:pointer;color:var(--muted);text-align:left;font:inherit;}
+  .segbtn.on{background:var(--panel2);border-color:#3a4656;color:var(--text);}
+  .segbtn b{font-family:'Oswald',sans-serif;font-weight:600;font-size:15px;letter-spacing:.03em;}
+  .segbtn span{font-size:11px;}
+  .scoring{margin:9px 2px 0;font-size:11.5px;color:var(--muted);}
+  .viewseg{margin-top:12px;}
+  .viewbtn{flex:1;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--muted);
+           font:600 13px 'Inter',sans-serif;cursor:pointer;}
+  .viewbtn.on{background:var(--gold);border-color:var(--gold);color:#0e1116;}
+  .controls{position:sticky;top:0;z-index:4;padding:12px 16px;background:var(--bg);border-bottom:1px solid var(--line);}
+  .search{width:100%;padding:9px 12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:14px;outline:none;}
+  .search::placeholder{color:#5f6b7c;}
+  .search:focus{border-color:#3a4656;}
+  .chips{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .chip{display:inline-flex;align-items:center;gap:5px;padding:5px 11px;background:var(--panel);border:1px solid var(--line);
+        border-radius:20px;color:var(--text);font:600 12px 'Inter',sans-serif;cursor:pointer;}
+  .chip.on{background:#e6e9ef;color:#0e1116;border-color:#e6e9ef;}
+  .chip .n{font-size:10px;opacity:.7;font-weight:500;}
+  .list{padding:4px 12px 24px;}
+  .tier{margin-top:14px;}
+  .tier-head{display:flex;justify-content:space-between;align-items:center;font-family:'Oswald',sans-serif;letter-spacing:.08em;
+             text-transform:uppercase;font-size:12px;color:var(--muted);padding:4px 4px 8px;border-bottom:1px dashed var(--line);}
+  .tier-head .n{font-size:11px;}
+  .row{display:flex;align-items:center;gap:10px;padding:11px 8px;border-bottom:1px solid #1b222c;cursor:pointer;}
+  .row:active{background:var(--panel);}
+  .rank{width:26px;text-align:center;font-family:'Oswald',sans-serif;font-weight:600;font-size:14px;color:var(--muted);flex:none;}
+  .postag{flex:none;width:34px;text-align:center;padding:3px 0;border-radius:5px;font-family:'Oswald',sans-serif;font-weight:700;
+          font-size:11px;color:#0e1116;letter-spacing:.03em;}
+  .name{flex:1;font-size:14.5px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .team{font-size:11px;color:var(--muted);flex:none;letter-spacing:.03em;}
+  .star{flex:none;width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:#586274;
+        font-size:16px;cursor:pointer;line-height:1;}
+  .star:active{color:var(--gold);border-color:var(--gold);}
+  .draftedwrap{margin-top:22px;border-top:1px solid var(--line);padding-top:10px;}
+  .drafted-toggle{background:none;border:none;color:var(--muted);font:600 12.5px 'Inter',sans-serif;cursor:pointer;padding:6px 4px;}
+  .draftedrow{display:flex;align-items:center;gap:9px;padding:8px;opacity:.72;}
+  .drafted-name{flex:1;font-size:13.5px;text-decoration:line-through;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .statustag{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;flex:none;}
+  .statustag.mine{color:var(--gold);}
+  .mini{flex:none;width:28px;height:28px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer;font-size:12px;}
+  .team-view{padding:12px 16px 24px;}
+  .team-head{display:flex;justify-content:space-between;align-items:center;font-family:'Oswald',sans-serif;text-transform:uppercase;
+             letter-spacing:.08em;font-size:13px;color:var(--text);padding-bottom:8px;border-bottom:1px solid var(--line);}
+  .team-count{font-size:11px;color:var(--muted);}
+  .slot{display:flex;align-items:center;gap:11px;padding:11px 6px;border-bottom:1px solid #1b222c;}
+  .slot.empty{opacity:.5;}
+  .slot-label{flex:none;min-width:44px;text-align:center;padding:4px 6px;border-radius:6px;font-family:'Oswald',sans-serif;
+              font-weight:700;font-size:11px;letter-spacing:.04em;border:1px solid var(--line);}
+  .slot-name{flex:1;font-size:14.5px;font-weight:500;}
+  .slot-team{font-size:11px;color:var(--muted);}
+  .slot-empty{flex:1;font-size:13px;color:var(--muted);font-style:italic;}
+  .empty{text-align:center;color:var(--muted);font-size:13px;padding:26px 12px;}
+  .foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-top:1px solid var(--line);flex-wrap:wrap;}
+  .src{font-size:11px;color:#6b7686;flex:1;min-width:180px;}
+  .reset{background:var(--panel);border:1px solid var(--line);color:var(--muted);padding:7px 12px;border-radius:7px;font:600 12px 'Inter',sans-serif;cursor:pointer;}
+  .reset.yes{color:#f26d6d;border-color:#5a2b2b;}
+  .reset-confirm{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+</style>
+</head>
+<body>
+<div id="app"><p class="empty">Loading boards…</p></div>
+
+<script>
+const POS_COLOR = { QB:"#f26d6d", RB:"#3ed99b", WR:"#5fa8f5", TE:"#f6bb45", DEF:"#b193f0" };
+const POS_ORDER = ["QB","RB","WR","TE","DEF"];
+const pid = p => (p.pos + "-" + p.name).replace(/[^a-zA-Z0-9]/g,"");
+
+const state = {
+  board:"redraft", view:"board", posFilter:"ALL", search:"",
+  showDrafted:false, confirmReset:false,
+  drafted:{ redraft:{}, dynasty:{} },
+  BOARDS:{}
+};
+
+function loadDrafted(){
+  for(const k of ["redraft","dynasty"]){
+    try{ const v = localStorage.getItem("draft-"+k); if(v) state.drafted[k] = JSON.parse(v); }
+    catch(e){}
+  }
+}
+function persist(k){
+  try{ localStorage.setItem("draft-"+k, JSON.stringify(state.drafted[k])); }catch(e){}
+}
+function setStatus(id, status){
+  const map = state.drafted[state.board];
+  if(status===null) delete map[id]; else map[id]=status;
+  persist(state.board); render();
+}
+function resetBoard(){ state.drafted[state.board]={}; persist(state.board); state.confirmReset=false; render(); }
+
+// network-first data load: newest rankings when online, cached copy when offline
+async function loadBoard(key){
+  try{
+    const res = await fetch("./data/"+key+".json", {cache:"no-store"});
+    if(res.ok) return await res.json();
+  }catch(e){}
+  const res = await fetch("./data/"+key+".json");   // fall back to SW cache
+  return await res.json();
+}
+
+function el(tag, attrs={}, ...kids){
+  const n=document.createElement(tag);
+  for(const [k,v] of Object.entries(attrs)){
+    if(k==="class") n.className=v;
+    else if(k==="style") n.setAttribute("style",v);
+    else if(k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k,v);
+  }
+  for(const kid of kids){ if(kid==null) continue; n.append(kid.nodeType?kid:document.createTextNode(kid)); }
+  return n;
+}
+
+function computeMyTeam(cfg, statusMap){
+  const mine = cfg.players.filter(p=>statusMap[pid(p)]==="mine").sort((a,b)=>a.rank-b.rank);
+  const used=new Set();
+  const slots = cfg.meta.starters.map(s=>{
+    const pick = mine.find(p=>!used.has(pid(p)) && s.eligible.includes(p.pos));
+    if(pick) used.add(pid(pick));
+    return {slot:s.slot, player:pick||null};
+  });
+  const bench = mine.filter(p=>!used.has(pid(p)));
+  return { slots, bench, filled:slots.filter(s=>s.player).length, total:slots.length, count:mine.length };
+}
+
+function render(){
+  const app=document.getElementById("app");
+  app.innerHTML="";
+  const cfg = state.BOARDS[state.board];
+  if(!cfg){ app.append(el("p",{class:"empty"},"Loading boards…")); return; }
+  const statusMap = state.drafted[state.board];
+  const picks = Object.keys(statusMap).length;
+
+  // header
+  const head = el("div",{class:"head"});
+  head.append(el("div",{class:"title"},
+    el("span",{class:"kicker"},"Draft Room"),
+    el("span",{class:"picks"}, picks+" off the board")));
+  const fmt = el("div",{class:"seg"});
+  for(const key of ["redraft","dynasty"]){
+    const b=state.BOARDS[key]; if(!b) continue;
+    fmt.append(el("button",{class:"segbtn"+(state.board===key?" on":""), onclick:()=>{state.board=key;state.posFilter="ALL";state.view="board";render();}},
+      el("b",{},b.meta.label), el("span",{},b.meta.tag)));
+  }
+  head.append(fmt);
+  head.append(el("p",{class:"scoring"}, cfg.meta.scoring));
+  const vs=el("div",{class:"seg viewseg"});
+  vs.append(el("button",{class:"viewbtn"+(state.view==="board"?" on":""), onclick:()=>{state.view="board";render();}},"Board"));
+  const mt=computeMyTeam(cfg, statusMap);
+  vs.append(el("button",{class:"viewbtn"+(state.view==="team"?" on":""), onclick:()=>{state.view="team";render();}},
+    "My Team"+(mt.count?" · "+mt.count:"")));
+  head.append(vs);
+  app.append(head);
+
+  if(state.view==="board") renderBoard(app, cfg, statusMap);
+  else renderTeam(app, cfg, mt);
+
+  // footer
+  const foot=el("div",{class:"foot"});
+  foot.append(el("span",{class:"src"}, cfg.meta.source));
+  if(state.confirmReset){
+    const c=el("span",{class:"reset-confirm"}, "Clear all "+cfg.meta.label+" picks?");
+    c.append(el("button",{class:"reset yes", onclick:resetBoard},"Reset"));
+    c.append(el("button",{class:"reset", onclick:()=>{state.confirmReset=false;render();}},"Cancel"));
+    foot.append(c);
+  } else {
+    foot.append(el("button",{class:"reset", onclick:()=>{state.confirmReset=true;render();}},"Reset "+cfg.meta.label));
+  }
+  app.append(foot);
+}
+
+function renderBoard(app, cfg, statusMap){
+  const controls=el("div",{class:"controls"});
+  const search=el("input",{class:"search", placeholder:"Search player or team…", value:state.search});
+  search.addEventListener("input", e=>{ state.search=e.target.value; render(); refocus(); });
+  controls.append(search);
+  const remaining={QB:0,RB:0,WR:0,TE:0,DEF:0};
+  cfg.players.forEach(p=>{ if(!statusMap[pid(p)] && remaining[p.pos]!==undefined) remaining[p.pos]++; });
+  const chips=el("div",{class:"chips"});
+  for(const p of ["ALL",...POS_ORDER]){
+    const on=state.posFilter===p;
+    const style = on && p!=="ALL" ? "background:"+POS_COLOR[p]+";color:#0e1116;border-color:"+POS_COLOR[p] : "";
+    const c=el("button",{class:"chip"+(on?" on":""), style, onclick:()=>{state.posFilter=p;render();}}, p);
+    if(p!=="ALL") c.append(el("span",{class:"n"}, String(remaining[p])));
+    chips.append(c);
+  }
+  controls.append(chips);
+  app.append(controls);
+
+  const q=state.search.trim().toLowerCase();
+  const avail=cfg.players.filter(p=>{
+    if(statusMap[pid(p)]) return false;
+    if(state.posFilter!=="ALL" && p.pos!==state.posFilter) return false;
+    if(q && !p.name.toLowerCase().includes(q) && !p.team.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const list=el("div",{class:"list"});
+  if(avail.length===0) list.append(el("p",{class:"empty"},"No players match. Clear the filter or search."));
+  const groups={};
+  avail.forEach(p=>{(groups[p.tier]=groups[p.tier]||[]).push(p);});
+  Object.keys(groups).map(Number).sort((a,b)=>a-b).forEach(t=>{
+    const sec=el("div",{class:"tier"});
+    sec.append(el("div",{class:"tier-head"}, el("span",{},"Tier "+t), el("span",{class:"n"}, groups[t].length+" left")));
+    groups[t].forEach(p=>{
+      const row=el("div",{class:"row", onclick:()=>setStatus(pid(p),"gone")});
+      row.append(el("span",{class:"rank"}, String(p.rank)));
+      row.append(el("span",{class:"postag", style:"background:"+(POS_COLOR[p.pos]||"#7a8697")}, p.pos));
+      row.append(el("span",{class:"name"}, p.name));
+      row.append(el("span",{class:"team"}, p.team));
+      const star=el("button",{class:"star", title:"Add to my team"}, "★");
+      star.addEventListener("click", e=>{ e.stopPropagation(); setStatus(pid(p),"mine"); });
+      row.append(star);
+      sec.append(row);
+    });
+    list.append(sec);
+  });
+
+  const draftedList=cfg.players.filter(p=>statusMap[pid(p)]).map(p=>({...p,status:statusMap[pid(p)]})).sort((a,b)=>a.rank-b.rank);
+  if(draftedList.length){
+    const dw=el("div",{class:"draftedwrap"});
+    dw.append(el("button",{class:"drafted-toggle", onclick:()=>{state.showDrafted=!state.showDrafted;render();}},
+      (state.showDrafted?"▾":"▸")+" Drafted ("+draftedList.length+")"));
+    if(state.showDrafted){
+      draftedList.forEach(p=>{
+        const r=el("div",{class:"draftedrow"});
+        r.append(el("span",{class:"postag", style:"background:"+(POS_COLOR[p.pos]||"#7a8697")}, p.pos));
+        r.append(el("span",{class:"drafted-name"}, p.name));
+        r.append(el("span",{class:"statustag"+(p.status==="mine"?" mine":"")}, p.status==="mine"?"★ mine":"gone"));
+        r.append(el("button",{class:"mini", title:"Toggle mine", onclick:()=>setStatus(pid(p), p.status==="mine"?"gone":"mine")}, "★"));
+        r.append(el("button",{class:"mini", title:"Undo", onclick:()=>setStatus(pid(p), null)}, "↩"));
+        dw.append(r);
+      });
+    }
+    list.append(dw);
+  }
+  app.append(list);
+}
+
+function renderTeam(app, cfg, mt){
+  const wrap=el("div",{class:"team-view"});
+  wrap.append(el("div",{class:"team-head"}, el("span",{},"Starters"), el("span",{class:"team-count"}, mt.filled+"/"+mt.total+" filled")));
+  mt.slots.forEach(s=>{
+    const row=el("div",{class:"slot"+(s.player?"":" empty")});
+    const style = s.player ? "background:"+(POS_COLOR[s.player.pos]||"#7a8697")+";color:#0e1116"
+                           : "color:#8b95a5;background:transparent";
+    row.append(el("span",{class:"slot-label", style}, s.slot));
+    if(s.player){
+      row.append(el("span",{class:"slot-name"}, s.player.name));
+      row.append(el("span",{class:"slot-team"}, s.player.pos+" · "+s.player.team));
+    } else row.append(el("span",{class:"slot-empty"},"open"));
+    wrap.append(row);
+  });
+  wrap.append(el("div",{class:"team-head", style:"margin-top:18px"}, el("span",{},"Bench"), el("span",{class:"team-count"}, mt.bench.length+"/"+cfg.meta.bench)));
+  if(mt.bench.length===0) wrap.append(el("p",{class:"empty"},"No bench players yet. Tap ★ on the board to add players."));
+  mt.bench.forEach(p=>{
+    const row=el("div",{class:"slot"});
+    row.append(el("span",{class:"slot-label", style:"background:"+(POS_COLOR[p.pos]||"#7a8697")+";color:#0e1116"}, p.pos));
+    row.append(el("span",{class:"slot-name"}, p.name));
+    row.append(el("span",{class:"slot-team"}, p.team));
+    wrap.append(row);
+  });
+  app.append(wrap);
+}
+
+let refocusFlag=false;
+function refocus(){ refocusFlag=true; }
+// keep focus in the search box across re-renders
+const origRender=render;
+render=function(){ const hadFocus=document.activeElement && document.activeElement.classList.contains("search");
+  const pos=hadFocus?document.activeElement.selectionStart:null;
+  origRender();
+  if(hadFocus){ const s=document.querySelector(".search"); if(s){ s.focus(); if(pos!=null) s.setSelectionRange(pos,pos);} }
+};
+
+async function boot(){
+  loadDrafted();
+  const [r,d] = await Promise.all([loadBoard("redraft"), loadBoard("dynasty")]);
+  state.BOARDS.redraft = r; state.BOARDS.dynasty = d;
+  render();
+}
+boot();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=> navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
