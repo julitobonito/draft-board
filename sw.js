@@ -1,9 +1,9 @@
 /* Draft Room service worker.
-   Bump SHELL_VERSION only when you change index.html / sw.js / icons.
-   Rankings live in ./data/*.json and are fetched network-first, so a data
-   refresh shows up automatically the next time the app is opened online —
-   no version bump needed for ranking updates. */
-const SHELL_VERSION = "v4";
+   The app shell (index.html) and rankings (data/*.json) are served NETWORK-FIRST,
+   so the newest version loads whenever you're online and falls back to cache offline.
+   That means replacing index.html in the repo is enough — no version bump needed for
+   app changes. Bump SHELL_VERSION only to force-clear caches (e.g. icon/asset changes). */
+const SHELL_VERSION = "v5";
 const SHELL_CACHE = "draftroom-shell-" + SHELL_VERSION;
 const DATA_CACHE  = "draftroom-data";
 const SHELL = [
@@ -22,19 +22,20 @@ self.addEventListener("activate", e => {
   ).then(()=>self.clients.claim()));
 });
 self.addEventListener("fetch", e => {
-  if(new URL(e.request.url).origin !== location.origin) return; // let Sleeper API + fonts hit network directly
   const url = new URL(e.request.url);
-  if(url.pathname.includes("/data/")){
-    // network-first for rankings, fall back to cache when offline
+  if(url.origin !== location.origin) return; // Sleeper API + fonts go straight to network
+  const isDoc = e.request.mode === "navigate" || url.pathname.endsWith("/") || url.pathname.endsWith("index.html");
+  if(isDoc || url.pathname.includes("/data/")){
+    // network-first, cache fallback
     e.respondWith(
       fetch(e.request).then(res => {
         const copy = res.clone();
-        caches.open(DATA_CACHE).then(c => c.put(e.request, copy));
+        caches.open(isDoc ? SHELL_CACHE : DATA_CACHE).then(c => c.put(e.request, copy));
         return res;
-      }).catch(() => caches.match(e.request))
+      }).catch(() => caches.match(e.request).then(hit => hit || caches.match("./index.html")))
     );
   } else {
-    // cache-first for the app shell
+    // cache-first for static assets (icons, manifest)
     e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request)));
   }
 });
