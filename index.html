@@ -119,7 +119,7 @@ const state = {
   drafted:{ redraft:{}, dynasty:{} },
   BOARDS:{},
   live:{ on:false, connecting:false, error:"", panelOpen:false,
-         leagueId:"1388267219577761792", username:"Meneertje",
+         leagueId:"1388267219577761792", username:"Meneertje", draftInput:"",
          draftId:null, myUserId:null, picks:{}, count:0, matched:0, timer:null, index:null }
 };
 
@@ -157,6 +157,10 @@ const tnorm = t => { t=(t||"").toUpperCase(); return TEAMMAP[t]||t; };
 const nname = s => (s||"").toLowerCase().split(/\s+/)
   .filter(w => !["jr","sr","ii","iii","iv","v"].includes(w.replace(/\./g,"")))
   .join("").replace(/[^a-z0-9]/g,"");
+function parseDraftId(s){ if(!s) return null; s=String(s).trim();
+  const m=s.match(/draft\/[a-z]*\/*(\d{6,})/i); if(m) return m[1];
+  const d=s.match(/(\d{6,})/); return d?d[1]:null; }
+function parseId(s){ const d=String(s||"").match(/(\d{6,})/); return d?d[1]:null; }
 
 function buildLiveIndex(){
   const b = state.BOARDS.redraft; if(!b) return;
@@ -177,7 +181,7 @@ function matchPick(meta){
   return c[0];
 }
 async function sjson(url){ const r=await fetch(url,{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
-function liveSaveCfg(){ try{ localStorage.setItem("sleeper-league",state.live.leagueId); localStorage.setItem("sleeper-user",state.live.username);}catch(e){} }
+function liveSaveCfg(){ try{ localStorage.setItem("sleeper-league",state.live.leagueId); localStorage.setItem("sleeper-user",state.live.username); localStorage.setItem("sleeper-draft",state.live.draftInput);}catch(e){} }
 
 async function resolveUser(username){
   try{ const u=await sjson(SLEEPER+"/user/"+encodeURIComponent(username)); if(u&&u.user_id) return u.user_id; }catch(e){}
@@ -197,8 +201,9 @@ async function sleeperConnect(){
   liveSaveCfg();
   try{
     L.myUserId = await resolveUser(L.username);
-    const did = await resolveDraft(L.leagueId);
-    if(!did) throw new Error("no draft on this league yet");
+    let did = parseDraftId(L.draftInput);
+    if(!did) did = await resolveDraft(parseId(L.leagueId) || L.leagueId);
+    if(!did) throw new Error("no draft found \u2014 paste your draft link in \u2699");
     L.draftId=did; L.on=true; L.connecting=false; L.panelOpen=false;
     try{ localStorage.setItem("sleeper-connected","1"); }catch(e){}
     await pollPicks();
@@ -289,7 +294,11 @@ function renderLiveBar(head){
 
   if(L.panelOpen){
     const pan=el("div",{class:"live-panel"});
-    const l1=el("label",{},"Sleeper League ID");
+    const l0=el("label",{},"Draft link or ID  \u2014 use this for a mock draft");
+    const i0=el("input",{value:L.draftInput,placeholder:"paste your Sleeper draft link"});
+    i0.addEventListener("input",e=>{state.live.draftInput=e.target.value.trim();});
+    l0.append(i0);
+    const l1=el("label",{},"League ID  \u2014 for your real league draft");
     const i1=el("input",{value:L.leagueId,inputmode:"numeric"});
     i1.addEventListener("input",e=>{state.live.leagueId=e.target.value.trim();});
     l1.append(i1);
@@ -297,9 +306,9 @@ function renderLiveBar(head){
     const i2=el("input",{value:L.username});
     i2.addEventListener("input",e=>{state.live.username=e.target.value.trim();});
     l2.append(i2);
-    pan.append(l1,l2);
+    pan.append(l0,l1,l2);
     pan.append(el("p",{class:"live-note"},
-      "Picks sync every few seconds. Your own picks drop into \u201CMy Team\u201D; everyone else\u2019s just grey out. Each device uses its own username, so the link is safe to share."));
+      "Mock drafts aren\u2019t attached to your league \u2014 for a mock, paste its draft link above. For your real league draft you can leave that blank and it uses the League ID. Your own picks drop into \u201CMy Team\u201D; the rest grey out."));
     pan.append(el("button",{class:"connectbtn on",
       onclick:()=>{state.live.panelOpen=false; sleeperConnect();}}, "Save & connect"));
     head.append(pan);
@@ -461,7 +470,8 @@ render=function(){ const hadFocus=document.activeElement && document.activeEleme
 async function boot(){
   loadDrafted();
   try{ state.live.leagueId=localStorage.getItem("sleeper-league")||state.live.leagueId;
-       state.live.username=localStorage.getItem("sleeper-user")||state.live.username; }catch(e){}
+       state.live.username=localStorage.getItem("sleeper-user")||state.live.username;
+       state.live.draftInput=localStorage.getItem("sleeper-draft")||state.live.draftInput; }catch(e){}
   const [r,d] = await Promise.all([loadBoard("redraft"), loadBoard("dynasty")]);
   state.BOARDS.redraft = r; state.BOARDS.dynasty = d;
   buildLiveIndex();
