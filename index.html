@@ -36,6 +36,24 @@
   .viewbtn{flex:1;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--muted);
            font:600 13px 'Inter',sans-serif;cursor:pointer;}
   .viewbtn.on{background:var(--gold);border-color:var(--gold);color:#1d2d1b;}
+  .livebar{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;}
+  .pill{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;padding:5px 11px;border-radius:20px;
+        border:1px solid var(--line);background:var(--panel);color:var(--muted);}
+  .pill.on{color:#3ed99b;border-color:#2f5a3a;}
+  .pill.err{color:var(--gold);border-color:#5a4a2b;}
+  .dot{width:7px;height:7px;border-radius:50%;background:currentColor;display:inline-block;flex:none;}
+  .dot.live{animation:pulse 1.4s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .connectbtn{background:var(--panel);border:1px solid var(--line);color:var(--text);font:600 12px 'Inter',sans-serif;
+              padding:6px 12px;border-radius:7px;cursor:pointer;}
+  .connectbtn.on{background:#3ed99b;border-color:#3ed99b;color:#12210f;}
+  .connectbtn.gear{margin-left:auto;padding:6px 10px;}
+  .live-panel{width:100%;display:flex;flex-direction:column;gap:9px;margin-top:9px;padding:11px;background:var(--panel);
+              border:1px solid var(--line);border-radius:9px;}
+  .live-panel label{font-size:11px;color:var(--muted);display:flex;flex-direction:column;gap:4px;}
+  .live-panel input{padding:8px 10px;background:var(--bg);border:1px solid var(--line);border-radius:7px;color:var(--text);font-size:13px;outline:none;}
+  .live-panel input:focus{border-color:#4a5f40;}
+  .live-note{font-size:11px;color:var(--muted);line-height:1.45;margin:0;}
   .controls{position:sticky;top:0;z-index:4;padding:12px 16px;background:var(--bg);border-bottom:1px solid var(--line);}
   .search{width:100%;padding:9px 12px;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:14px;outline:none;}
   .search::placeholder{color:#6f7f66;}
@@ -66,6 +84,7 @@
   .drafted-name{flex:1;font-size:13.5px;text-decoration:line-through;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .statustag{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;flex:none;}
   .statustag.mine{color:var(--gold);}
+  .statustag.live{color:#3ed99b;}
   .mini{flex:none;width:28px;height:28px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--muted);cursor:pointer;font-size:12px;}
   .team-view{padding:12px 16px 24px;}
   .team-head{display:flex;justify-content:space-between;align-items:center;font-family:'Oswald',sans-serif;text-transform:uppercase;
@@ -98,7 +117,10 @@ const state = {
   board:"redraft", view:"board", posFilter:"ALL", search:"",
   showDrafted:false, confirmReset:false,
   drafted:{ redraft:{}, dynasty:{} },
-  BOARDS:{}
+  BOARDS:{},
+  live:{ on:false, connecting:false, error:"", panelOpen:false,
+         leagueId:"1388267219577761792", username:"Meneertje",
+         draftId:null, myUserId:null, picks:{}, count:0, matched:0, timer:null, index:null }
 };
 
 function loadDrafted(){
@@ -116,6 +138,101 @@ function setStatus(id, status){
   persist(state.board); render();
 }
 function resetBoard(){ state.drafted[state.board]={}; persist(state.board); state.confirmReset=false; render(); }
+
+// merged view: manual marks + live Sleeper picks (live applies to the redraft league only)
+function mergedStatus(){
+  const manual = state.drafted[state.board];
+  if(!(state.board==="redraft" && state.live.on)) return manual;
+  const out = Object.assign({}, manual);
+  for(const id in state.live.picks){
+    out[id] = (state.live.picks[id]==="mine" || out[id]==="mine") ? "mine" : "gone";
+  }
+  return out;
+}
+
+// ---------- Sleeper live sync ----------
+const SLEEPER = "https://api.sleeper.app/v1";
+const TEAMMAP = { JAC:"JAX", WSH:"WAS" };
+const tnorm = t => { t=(t||"").toUpperCase(); return TEAMMAP[t]||t; };
+const nname = s => (s||"").toLowerCase().split(/\s+/)
+  .filter(w => !["jr","sr","ii","iii","iv","v"].includes(w.replace(/\./g,"")))
+  .join("").replace(/[^a-z0-9]/g,"");
+
+function buildLiveIndex(){
+  const b = state.BOARDS.redraft; if(!b) return;
+  const idx = {};
+  b.players.forEach(p=>{
+    if(p.pos==="DEF"){ const k="def:"+tnorm(p.team); (idx[k]=idx[k]||[]).push(p); return; }
+    const k=nname(p.name); (idx[k]=idx[k]||[]).push(p);
+  });
+  state.live.index = idx;
+}
+function matchPick(meta){
+  const idx = state.live.index; if(!idx) return null;
+  const pos = (meta.position||"").toUpperCase();
+  if(pos==="DEF" || pos==="DST"){ const c=idx["def:"+tnorm(meta.team)]; return c?c[0]:null; }
+  let c = idx[ nname((meta.first_name||"")+" "+(meta.last_name||"")) ];
+  if(!c) return null;
+  if(c.length>1){ const f=c.filter(p=>p.pos===pos && tnorm(p.team)===tnorm(meta.team)); if(f.length) c=f; }
+  return c[0];
+}
+async function sjson(url){ const r=await fetch(url,{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status); return r.json(); }
+function liveSaveCfg(){ try{ localStorage.setItem("sleeper-league",state.live.leagueId); localStorage.setItem("sleeper-user",state.live.username);}catch(e){} }
+
+async function resolveUser(username){
+  try{ const u=await sjson(SLEEPER+"/user/"+encodeURIComponent(username)); if(u&&u.user_id) return u.user_id; }catch(e){}
+  try{ const us=await sjson(SLEEPER+"/league/"+state.live.leagueId+"/users");
+       const m=(us||[]).find(x=>(x.display_name||"").toLowerCase()===username.toLowerCase());
+       if(m) return m.user_id; }catch(e){}
+  return null;
+}
+async function resolveDraft(leagueId){
+  const ds = await sjson(SLEEPER+"/league/"+leagueId+"/drafts");
+  if(!ds || !ds.length) return null;
+  const active = ds.find(d=>["drafting","in_progress","paused"].includes(d.status));
+  return (active || ds.slice().sort((a,b)=>(b.created||0)-(a.created||0))[0]).draft_id;
+}
+async function sleeperConnect(){
+  const L=state.live; L.connecting=true; L.error=""; render();
+  liveSaveCfg();
+  try{
+    L.myUserId = await resolveUser(L.username);
+    const did = await resolveDraft(L.leagueId);
+    if(!did) throw new Error("no draft on this league yet");
+    L.draftId=did; L.on=true; L.connecting=false; L.panelOpen=false;
+    try{ localStorage.setItem("sleeper-connected","1"); }catch(e){}
+    await pollPicks();
+    if(L.timer) clearInterval(L.timer);
+    L.timer = setInterval(pollPicks, 4000);
+  }catch(e){
+    L.connecting=false; L.on=false; L.error=String(e.message||e);
+    try{ localStorage.setItem("sleeper-connected","0"); }catch(_){}
+    render();
+  }
+}
+function sleeperDisconnect(){
+  const L=state.live;
+  if(L.timer) clearInterval(L.timer); L.timer=null;
+  L.on=false; L.picks={}; L.count=0; L.matched=0; L.error="";
+  try{ localStorage.setItem("sleeper-connected","0"); }catch(e){}
+  render();
+}
+async function pollPicks(){
+  const L=state.live; if(!L.draftId) return;
+  try{
+    const picks = await sjson(SLEEPER+"/draft/"+L.draftId+"/picks");
+    const m={}; let matched=0;
+    (picks||[]).forEach(pk=>{
+      const pl = matchPick(pk.metadata||{}); if(!pl) return;
+      m[pid(pl)] = (pk.picked_by && pk.picked_by===L.myUserId) ? "mine" : "gone";
+      matched++;
+    });
+    L.picks=m; L.count=(picks||[]).length; L.matched=matched; L.error="";
+    render();
+  }catch(e){
+    L.error="reconnecting…"; render();   // keep last picks on a transient failure
+  }
+}
 
 // network-first data load: newest rankings when online, cached copy when offline
 async function loadBoard(key){
@@ -151,12 +268,50 @@ function computeMyTeam(cfg, statusMap){
   return { slots, bench, filled:slots.filter(s=>s.player).length, total:slots.length, count:mine.length };
 }
 
+function renderLiveBar(head){
+  if(state.board!=="redraft") return;
+  const L=state.live;
+  const bar=el("div",{class:"livebar"});
+  let cls="pill", txt="Sleeper sync off";
+  if(L.connecting){ txt="Connecting to Sleeper…"; }
+  else if(L.on && L.error){ cls="pill err"; txt="Live · "+L.error; }
+  else if(L.on){ cls="pill on"; txt="Live · "+L.matched+" picks in"; }
+  else if(L.error){ cls="pill err"; txt="Couldn't connect: "+L.error; }
+  const pill=el("span",{class:cls});
+  pill.append(el("span",{class:"dot"+(L.on&&!L.error?" live":"")}));
+  pill.append(txt);
+  bar.append(pill);
+  bar.append(el("button",{class:"connectbtn gear", title:"Sleeper settings",
+    onclick:()=>{state.live.panelOpen=!state.live.panelOpen;render();}}, "⚙"));
+  if(L.on) bar.append(el("button",{class:"connectbtn on", onclick:sleeperDisconnect}, "Disconnect"));
+  else bar.append(el("button",{class:"connectbtn", onclick:sleeperConnect}, L.connecting?"…":"Connect"));
+  head.append(bar);
+
+  if(L.panelOpen){
+    const pan=el("div",{class:"live-panel"});
+    const l1=el("label",{},"Sleeper League ID");
+    const i1=el("input",{value:L.leagueId,inputmode:"numeric"});
+    i1.addEventListener("input",e=>{state.live.leagueId=e.target.value.trim();});
+    l1.append(i1);
+    const l2=el("label",{},"Your Sleeper username");
+    const i2=el("input",{value:L.username});
+    i2.addEventListener("input",e=>{state.live.username=e.target.value.trim();});
+    l2.append(i2);
+    pan.append(l1,l2);
+    pan.append(el("p",{class:"live-note"},
+      "Picks sync every few seconds. Your own picks drop into \u201CMy Team\u201D; everyone else\u2019s just grey out. Each device uses its own username, so the link is safe to share."));
+    pan.append(el("button",{class:"connectbtn on",
+      onclick:()=>{state.live.panelOpen=false; sleeperConnect();}}, "Save & connect"));
+    head.append(pan);
+  }
+}
+
 function render(){
   const app=document.getElementById("app");
   app.innerHTML="";
   const cfg = state.BOARDS[state.board];
   if(!cfg){ app.append(el("p",{class:"empty"},"Loading boards…")); return; }
-  const statusMap = state.drafted[state.board];
+  const statusMap = mergedStatus();
   const picks = Object.keys(statusMap).length;
 
   // header
@@ -172,6 +327,7 @@ function render(){
   }
   head.append(fmt);
   head.append(el("p",{class:"scoring"}, cfg.meta.scoring));
+  renderLiveBar(head);
   const vs=el("div",{class:"seg viewseg"});
   vs.append(el("button",{class:"viewbtn"+(state.view==="board"?" on":""), onclick:()=>{state.view="board";render();}},"Board"));
   const mt=computeMyTeam(cfg, statusMap);
@@ -243,7 +399,8 @@ function renderBoard(app, cfg, statusMap){
     list.append(sec);
   });
 
-  const draftedList=cfg.players.filter(p=>statusMap[pid(p)]).map(p=>({...p,status:statusMap[pid(p)]})).sort((a,b)=>a.rank-b.rank);
+  const manual = state.drafted[state.board];
+  const draftedList=cfg.players.filter(p=>statusMap[pid(p)]).map(p=>({...p,status:statusMap[pid(p)],live:!manual[pid(p)]})).sort((a,b)=>a.rank-b.rank);
   if(draftedList.length){
     const dw=el("div",{class:"draftedwrap"});
     dw.append(el("button",{class:"drafted-toggle", onclick:()=>{state.showDrafted=!state.showDrafted;render();}},
@@ -253,9 +410,10 @@ function renderBoard(app, cfg, statusMap){
         const r=el("div",{class:"draftedrow"});
         r.append(el("span",{class:"postag", style:"background:"+(POS_COLOR[p.pos]||"#7a8697")}, p.pos));
         r.append(el("span",{class:"drafted-name"}, p.name));
-        r.append(el("span",{class:"statustag"+(p.status==="mine"?" mine":"")}, p.status==="mine"?"★ mine":"gone"));
-        r.append(el("button",{class:"mini", title:"Toggle mine", onclick:()=>setStatus(pid(p), p.status==="mine"?"gone":"mine")}, "★"));
-        r.append(el("button",{class:"mini", title:"Undo", onclick:()=>setStatus(pid(p), null)}, "↩"));
+        const tagcls = p.status==="mine" ? "statustag mine" : (p.live ? "statustag live" : "statustag");
+        r.append(el("span",{class:tagcls}, p.status==="mine"?"★ mine":(p.live?"● live":"gone")));
+        r.append(el("button",{class:"mini", title:"Toggle mine", onclick:()=>setStatus(pid(p), (statusMap[pid(p)]==="mine")?"gone":"mine")}, "★"));
+        if(!p.live) r.append(el("button",{class:"mini", title:"Undo", onclick:()=>setStatus(pid(p), null)}, "↩"));
         dw.append(r);
       });
     }
@@ -302,9 +460,13 @@ render=function(){ const hadFocus=document.activeElement && document.activeEleme
 
 async function boot(){
   loadDrafted();
+  try{ state.live.leagueId=localStorage.getItem("sleeper-league")||state.live.leagueId;
+       state.live.username=localStorage.getItem("sleeper-user")||state.live.username; }catch(e){}
   const [r,d] = await Promise.all([loadBoard("redraft"), loadBoard("dynasty")]);
   state.BOARDS.redraft = r; state.BOARDS.dynasty = d;
+  buildLiveIndex();
   render();
+  try{ if(localStorage.getItem("sleeper-connected")==="1") sleeperConnect(); }catch(e){}
 }
 boot();
 

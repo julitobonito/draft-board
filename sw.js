@@ -3,7 +3,7 @@
    Rankings live in ./data/*.json and are fetched network-first, so a data
    refresh shows up automatically the next time the app is opened online —
    no version bump needed for ranking updates. */
-const SHELL_VERSION = "v2";
+const SHELL_VERSION = "v3";
 const SHELL_CACHE = "draftroom-shell-" + SHELL_VERSION;
 const DATA_CACHE  = "draftroom-data";
 const SHELL = [
@@ -22,6 +22,7 @@ self.addEventListener("activate", e => {
   ).then(()=>self.clients.claim()));
 });
 self.addEventListener("fetch", e => {
+  if(new URL(e.request.url).origin !== location.origin) return; // let Sleeper API + fonts hit network directly
   const url = new URL(e.request.url);
   if(url.pathname.includes("/data/")){
     // network-first for rankings, fall back to cache when offline
