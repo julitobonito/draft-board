@@ -148,6 +148,25 @@
   .tr-sos.good{color:#6fdca6;}
   .tr-sos.bad{color:#f28b8b;}
   .tr-stamp{font-size:10.5px;color:#7c8c73;margin-top:14px;line-height:1.5;}
+  .tr-sub{display:flex;gap:6px;margin:14px 0 4px;}
+  .tr-sub button{flex:1;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:8px;
+                 color:var(--muted);font:600 12.5px 'Inter',sans-serif;cursor:pointer;}
+  .tr-sub button.on{background:var(--panel2);border-color:#4a5f40;color:var(--text);}
+  .tr-tier{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--gold);
+           border:1px solid #5a4a2b;border-radius:4px;padding:1px 5px;margin-left:7px;font-weight:600;}
+  .lg-team{border:1px solid var(--line);background:var(--panel);border-radius:10px;margin-bottom:8px;overflow:hidden;}
+  .lg-head{display:flex;align-items:center;gap:9px;padding:11px 12px;cursor:pointer;}
+  .lg-head.me{background:rgba(245,196,81,.08);}
+  .lg-rk{flex:none;width:18px;font-family:'Oswald',sans-serif;font-size:13px;color:var(--muted);}
+  .lg-nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px;font-weight:500;}
+  .lg-val{flex:none;font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;}
+  .lg-meta{padding:0 12px 10px;font-size:11px;color:var(--muted);line-height:1.55;}
+  .lg-meta b{color:var(--text);font-weight:600;}
+  .lg-body{border-top:1px solid var(--line);padding:9px 12px 12px;}
+  .lg-grp{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.07em;font-size:10.5px;
+          color:var(--muted);margin:9px 0 5px;}
+  .lg-p{display:flex;align-items:center;gap:7px;padding:4px 0;font-size:12.5px;}
+  .lg-p .tr-pname{font-size:12.5px;}
 </style>
 </head>
 <body>
@@ -168,7 +187,7 @@ const state = {
          draftId:null, myUserId:null, picks:{}, count:0, matched:0, timer:null, index:null },
   ros:null,
   tr:{ syncing:false, error:"", synced:false, rosters:null, users:null, league:null,
-       myRosterId:null, suggestions:[], posFilter:"ALL", lastSync:null, valueMode:"playoff" }
+       myRosterId:null, suggestions:[], posFilter:"ALL", lastSync:null, valueMode:"playoff", sub:"suggest", expanded:{} }
 };
 
 function loadDrafted(){
@@ -651,30 +670,42 @@ function buildSuggestions(){
 
     const consider=(give,get)=>{
       const giveRaw=rawOf(give), getRaw=rawOf(get);
-      // you have to pay roughly market price or nobody replies
-      if(giveRaw < 0.85*getRaw) return;
+      const fair = getRaw>0 ? giveRaw/getRaw : 9;
+      if(fair < 0.75) return;                       // loosest bar; graded below
       const newMine=me.players.filter(p=>!give.includes(p)).concat(get);
       const newOpp=opp.players.filter(p=>!get.includes(p)).concat(give);
       const lineupGain=lineupVal(newMine,slots)-myLuBase;
       const myGain=rosterValue(newMine,slots)-myRvBase;
       const theirGain=rosterValue(newOpp,slots)-oppRvBase;
-      if(lineupGain>0.3 && myGain>0.2 && theirGain>0.3){
-        out.push({opp:opp.name, oppId:opp.roster_id, give:give.slice(), get:get.slice(),
-                  lineupGain:+lineupGain.toFixed(2), myGain:+myGain.toFixed(2),
-                  theirGain:+theirGain.toFixed(2), giveRaw:+giveRaw.toFixed(1), getRaw:+getRaw.toFixed(1)});
-      }
+      if(lineupGain<=0.05 || theirGain<=0.05) return;
+      // tier 0 = clean, 1 = thinner margin, 2 = speculative
+      let tier=2;
+      if(fair>=0.85 && lineupGain>0.30 && myGain>0.20 && theirGain>0.30) tier=0;
+      else if(fair>=0.80 && lineupGain>0.15 && theirGain>0.15) tier=1;
+      out.push({opp:opp.name, oppId:opp.roster_id, give:give.slice(), get:get.slice(), tier,
+                lineupGain:+lineupGain.toFixed(2), myGain:+myGain.toFixed(2),
+                theirGain:+theirGain.toFixed(2), giveRaw:+giveRaw.toFixed(1), getRaw:+getRaw.toFixed(1)});
     };
+    // 1-for-1
     myTop.forEach(a=> theirTop.forEach(b=> consider([a],[b]) ));
+    // 2-for-1: consolidate your depth into one of their starters
     for(let i=0;i<myTop.length;i++)
       for(let j=i+1;j<myTop.length;j++)
         theirTop.forEach(b=> consider([myTop[i],myTop[j]],[b]) );
+    // 1-for-2: cash one of your studs in for two of their pieces
+    const myBig=myTop.slice(0,10), tt=theirTop.slice(0,14);
+    myBig.forEach(a=>{
+      for(let i=0;i<tt.length;i++)
+        for(let j=i+1;j<tt.length;j++)
+          consider([a],[tt[i],tt[j]]);
+    });
   });
 
-  out.sort((x,y)=> (y.lineupGain-x.lineupGain) || (y.myGain-x.myGain));
+  out.sort((x,y)=> (x.tier-y.tier) || (y.lineupGain-x.lineupGain) || (y.myGain-x.myGain));
 
-  // drop any 2-for-1 where the 1-for-1 subset already does as well (no free throw-ins)
+  // drop any multi-player offer that a simpler one already matches (no free throw-ins)
   const bySingle={};
-  out.forEach(t=>{ if(t.give.length===1){
+  out.forEach(t=>{ if(t.give.length===1 && t.get.length===1){
     const k=t.oppId+"|"+t.get[0].name;
     if(!(k in bySingle) || t.lineupGain>bySingle[k]) bySingle[k]=t.lineupGain;
   }});
@@ -684,17 +715,44 @@ function buildSuggestions(){
     return !(k in bySingle) || t.lineupGain > bySingle[k]+0.25;
   });
 
-  // one offer per target player, best few per opponent
+  // spread across opponents so one team can't flood the list
   const seen=new Set(), perOpp={}, kept=[];
   for(const t of pruned){
-    const key=t.oppId+"|"+t.get.map(p=>p.name).join("+");
+    // one package per target: cheapest way to land him, not every filler permutation
+    const key=t.oppId+"|"+t.get.map(p=>p.name).sort().join("+");
     if(seen.has(key)) continue;
     seen.add(key);
     perOpp[t.oppId]=(perOpp[t.oppId]||0)+1;
-    if(perOpp[t.oppId]<=3) kept.push(t);
-    if(kept.length>=24) break;
+    if(perOpp[t.oppId]<=5) kept.push(t);
+    if(kept.length>=45) break;
   }
   T.suggestions=kept;
+}
+
+// profile any team: lineup, bench depth, biggest hole, deepest spot
+function teamProfile(team){
+  const slots=slotsOf();
+  const lu=lineupOf(team.players, slots);
+  const starters=new Set(lu.slots.filter(s=>s.player).map(s=>s.player));
+  const bench=team.players.filter(p=>!starters.has(p)).sort((a,b)=>ppw(b)-ppw(a));
+  // biggest hole = an unfilled slot first, otherwise the weakest named starter.
+  // DEF and the flex spots are skipped: nobody trades for a streamed defence, and a
+  // flex is filled by whoever is spare rather than being a position of need.
+  let hole=null, empty=null;
+  lu.slots.forEach(s=>{
+    if(["FLEX","SF","DEF"].includes(s.slot)) return;
+    if(!s.player){ if(!empty) empty={slot:s.slot, val:0}; return; }
+    if(!hole || ppw(s.player)<hole.val) hole={slot:s.slot, val:ppw(s.player), player:s.player};
+  });
+  if(empty) hole=empty;
+  const benchByPos={};
+  bench.forEach(p=>{ benchByPos[p.pos]=(benchByPos[p.pos]||0)+ppw(p); });
+  let deep=null;
+  ["RB","WR","TE","QB"].forEach(pos=>{
+    const v=benchByPos[pos]||0;
+    if(!deep || v>deep.val) deep={pos, val:v};
+  });
+  return {lineup:lu, starters, bench, hole, deep};
 }
 
 function myNeeds(){
@@ -732,6 +790,67 @@ function sosPip(p){
   return el("span",{class:cls, title:"Playoff schedule "+s+"/5"}, "\u25cf".repeat(Math.max(1,s)));
 }
 
+function renderLeague(wrap){
+  const T=state.tr;
+  const rows=T.rosters.map(t=>{
+    const pr=teamProfile(t);
+    return {t, pr, val:pr.lineup.value};
+  }).sort((a,b)=>b.val-a.val);
+
+  wrap.append(el("div",{class:"tr-sec"}, el("b",{},"Every team, by lineup value"),
+    el("span",{}, state.tr.valueMode==="playoff" ? "playoff weeks" : "rest of season")));
+
+  rows.forEach((r,i)=>{
+    const mine = r.t.roster_id===T.myRosterId;
+    const box=el("div",{class:"lg-team"});
+    const head=el("div",{class:"lg-head"+(mine?" me":""),
+      onclick:()=>{ state.tr.expanded[r.t.roster_id]=!state.tr.expanded[r.t.roster_id]; render(); }});
+    head.append(el("span",{class:"lg-rk"}, String(i+1)));
+    head.append(el("span",{class:"lg-nm"}, r.t.name + (mine?"  (you)":"")));
+    head.append(el("span",{class:"lg-val", style:mine?"color:var(--gold)":""}, r.val.toFixed(1)));
+    box.append(head);
+
+    const meta=el("div",{class:"lg-meta"});
+    if(r.pr.hole && r.pr.hole.player)
+      meta.append(el("span",{}, "Weakest starter: "), el("b",{}, r.pr.hole.slot+" "+r.pr.hole.player.name+" ("+r.pr.hole.val.toFixed(1)+")"));
+    else if(r.pr.hole)
+      meta.append(el("span",{}, "Open slot: "), el("b",{}, r.pr.hole.slot));
+    if(r.pr.deep && r.pr.deep.val>0){
+      meta.append(el("br",{}));
+      meta.append(el("span",{}, "Deepest bench: "), el("b",{}, r.pr.deep.pos+" ("+r.pr.deep.val.toFixed(1)+" on the bench)"));
+    }
+    box.append(meta);
+
+    if(state.tr.expanded[r.t.roster_id]){
+      const body=el("div",{class:"lg-body"});
+      const line=(p,starting)=>{
+        const row=el("div",{class:"lg-p"});
+        row.append(el("span",{class:"tr-ptag", style:"background:"+(POS_COLOR[p.pos]||"#7a8697")}, p.pos));
+        row.append(el("span",{class:"tr-pname"}, p.name));
+        row.append(el("span",{class:"tr-ppw"}, ppw(p).toFixed(1)));
+        row.append(sosPip(p));
+        return row;
+      };
+      body.append(el("div",{class:"lg-grp"},"Starters"));
+      r.pr.lineup.slots.forEach(s=>{
+        if(!s.player) return;
+        const row=line(s.player,true);
+        row.insertBefore(el("span",{class:"tr-slot", style:"min-width:38px"}, s.slot), row.firstChild);
+        body.append(row);
+      });
+      if(r.pr.bench.length){
+        body.append(el("div",{class:"lg-grp"},"Bench"));
+        r.pr.bench.forEach(p=> body.append(line(p,false)) );
+      }
+      box.append(body);
+    }
+    wrap.append(box);
+  });
+
+  wrap.append(el("div",{class:"tr-stamp"},
+    "Tap a team to see their roster and what each player is worth. Lineup value is their best legal starting eleven, so a high bench total next to a weak starter is a team with something to trade."));
+}
+
 function renderTrades(app){
   const T=state.tr;
   const wrap=el("div",{class:"tr-wrap"});
@@ -763,6 +882,15 @@ function renderTrades(app){
   modes.append(mk("playoff","Playoff weeks","weeks 15-17 schedule"));
   modes.append(mk("ros","Rest of season","every week from here"));
   wrap.append(modes);
+
+  const subs=el("div",{class:"tr-sub"});
+  [["suggest","Suggestions"],["league","League"]].forEach(([k,lbl])=>{
+    subs.append(el("button",{class:(T.sub===k?"on":""),
+      onclick:()=>{ state.tr.sub=k; render(); }}, lbl));
+  });
+  wrap.append(subs);
+
+  if(T.sub==="league"){ renderLeague(wrap); app.append(wrap); return; }
 
   const {needs, lineup} = myNeeds();
 
@@ -807,8 +935,10 @@ function renderTrades(app){
 
   list.forEach(t=>{
     const card=el("div",{class:"tr-card"});
-    card.append(el("div",{class:"tr-head2"},
-      el("span",{class:"tr-opp"}, t.opp),
+    const oppCell=el("span",{class:"tr-opp"}, t.opp);
+    if(t.tier===1) oppCell.append(el("span",{class:"tr-tier"},"thin margin"));
+    if(t.tier===2) oppCell.append(el("span",{class:"tr-tier"},"long shot"));
+    card.append(el("div",{class:"tr-head2"}, oppCell,
       el("span",{class:"tr-gain"}, "+"+t.lineupGain.toFixed(1)+" pts/wk")));
     const side=(label,arr)=>{
       const r=el("div",{class:"tr-side"});
