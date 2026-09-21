@@ -3,7 +3,7 @@
    so the newest version loads whenever you're online and falls back to cache offline.
    That means replacing index.html in the repo is enough — no version bump needed for
    app changes. Bump SHELL_VERSION only to force-clear caches (e.g. icon/asset changes). */
-const SHELL_VERSION = "v6";
+const SHELL_VERSION = "v7";
 const SHELL_CACHE = "draftroom-shell-" + SHELL_VERSION;
 const DATA_CACHE  = "draftroom-data";
 const SHELL = [

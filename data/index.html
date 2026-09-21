@@ -139,6 +139,15 @@
   .tr-slot{flex:none;min-width:42px;text-align:center;padding:3px 6px;border-radius:5px;font-family:'Oswald',sans-serif;
            font-weight:700;font-size:10px;letter-spacing:.04em;border:1px solid var(--line);color:var(--muted);}
   .tr-weak{color:#f28b8b;}
+  .tr-mode{display:flex;gap:0;margin-bottom:12px;border:1px solid var(--line);border-radius:9px;overflow:hidden;}
+  .tr-mode button{flex:1;padding:9px 8px;background:var(--panel);border:0;color:var(--muted);
+                  font:600 12px 'Inter',sans-serif;cursor:pointer;line-height:1.35;}
+  .tr-mode button.on{background:var(--gold);color:#1d2d1b;}
+  .tr-mode small{display:block;font-weight:500;font-size:10px;opacity:.8;}
+  .tr-sos{flex:none;font-size:10px;letter-spacing:.5px;color:var(--muted);width:34px;text-align:right;}
+  .tr-sos.good{color:#6fdca6;}
+  .tr-sos.bad{color:#f28b8b;}
+  .tr-stamp{font-size:10.5px;color:#7c8c73;margin-top:14px;line-height:1.5;}
 </style>
 </head>
 <body>
@@ -159,7 +168,7 @@ const state = {
          draftId:null, myUserId:null, picks:{}, count:0, matched:0, timer:null, index:null },
   ros:null,
   tr:{ syncing:false, error:"", synced:false, rosters:null, users:null, league:null,
-       myRosterId:null, suggestions:[], posFilter:"ALL", lastSync:null }
+       myRosterId:null, suggestions:[], posFilter:"ALL", lastSync:null, valueMode:"playoff" }
 };
 
 function loadDrafted(){
@@ -527,9 +536,14 @@ function rosFor(sp){
 }
 const REPLACEMENT = { QB:8, RB:3, WR:3, TE:2.5, DEF:4 };
 function computePpw(sp){ const r=rosFor(sp); return r ? r.ppw : (REPLACEMENT[sp.pos] || 3); }
+function computePpwP(sp){ const r=rosFor(sp); return r ? (r.ppwP!==undefined?r.ppwP:r.ppw) : (REPLACEMENT[sp.pos] || 3); }
+function sosP(sp){ const r=rosFor(sp); return r && r.sosP!==null && r.sosP!==undefined ? r.sosP : null; }
 // value is resolved once per player at sync time; the trade loops run millions of
 // comparisons and re-normalising names inside them made this crawl on mobile
-function ppw(sp){ return sp._v !== undefined ? sp._v : (sp._v = computePpw(sp)); }
+function ppw(sp){
+  if(state.tr.valueMode==="playoff") return sp._vp !== undefined ? sp._vp : (sp._vp = computePpwP(sp));
+  return sp._v !== undefined ? sp._v : (sp._v = computePpw(sp));
+}
 
 // cache Sleeper's player dictionary (trimmed) so we don't refetch 5MB every sync
 async function loadSleeperPlayers(){
@@ -604,7 +618,7 @@ async function tradeSync(){
         const e=pmap[id]; return e ? {id, name:e[0], pos:e[1], team:e[2]} : null;
       }).filter(Boolean)
     }));
-    teams.forEach(t=>t.players.forEach(p=>{ p._v = computePpw(p); }));
+    teams.forEach(t=>t.players.forEach(p=>{ p._v = computePpw(p); p._vp = computePpwP(p); }));
     const mine = teams.find(t=>t.owner_id===myUid);
     if(!mine) throw new Error("couldn't find your roster \u2014 check the username in \u2699");
     T.league=league; T.rosters=teams; T.myRosterId=mine.roster_id;
@@ -711,6 +725,13 @@ function whyLine(t){
   return "Straight swap that upgrades your starting "+getP+" while giving them the "+giveP+" help their lineup is missing.";
 }
 
+function sosPip(p){
+  const s=sosP(p);
+  if(s===null) return el("span",{class:"tr-sos"},"");
+  const cls = s>=4 ? "tr-sos good" : (s<=1 ? "tr-sos bad" : "tr-sos");
+  return el("span",{class:cls, title:"Playoff schedule "+s+"/5"}, "\u25cf".repeat(Math.max(1,s)));
+}
+
 function renderTrades(app){
   const T=state.tr;
   const wrap=el("div",{class:"tr-wrap"});
@@ -733,6 +754,16 @@ function renderTrades(app){
 
   if(!T.synced){ app.append(wrap); return; }
 
+  const modes=el("div",{class:"tr-mode"});
+  const mk=(key,label,sub)=>{
+    const b=el("button",{class:(T.valueMode===key?"on":""),
+      onclick:()=>{ state.tr.valueMode=key; buildSuggestions(); render(); }}, label);
+    b.append(el("small",{},sub)); return b;
+  };
+  modes.append(mk("playoff","Playoff weeks","weeks 15-17 schedule"));
+  modes.append(mk("ros","Rest of season","every week from here"));
+  wrap.append(modes);
+
   const {needs, lineup} = myNeeds();
 
   wrap.append(el("div",{class:"tr-sec"}, el("b",{},"Your starting lineup"),
@@ -746,6 +777,7 @@ function renderTrades(app){
       row.append(el("span",{class:"tr-ptag", style:"background:"+(POS_COLOR[s.player.pos]||"#7a8697")}, s.player.pos));
       row.append(el("span",{class:"tr-pname"+(isWeak?" tr-weak":"")}, s.player.name));
       row.append(el("span",{class:"tr-ppw"}, ppw(s.player).toFixed(1)));
+      row.append(sosPip(s.player));
     } else row.append(el("span",{class:"tr-pname", style:"color:var(--muted);font-style:italic"},"empty"));
     wrap.append(row);
   });
@@ -787,6 +819,7 @@ function renderTrades(app){
         line.append(el("span",{class:"tr-ptag", style:"background:"+(POS_COLOR[p.pos]||"#7a8697")}, p.pos));
         line.append(el("span",{class:"tr-pname"}, p.name));
         line.append(el("span",{class:"tr-ppw"}, ppw(p).toFixed(1)));
+        line.append(sosPip(p));
         pl.append(line);
       });
       r.append(pl); return r;
