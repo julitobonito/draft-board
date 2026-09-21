@@ -103,6 +103,51 @@
   .reset{background:var(--panel);border:1px solid var(--line);color:var(--muted);padding:7px 12px;border-radius:7px;font:600 12px 'Inter',sans-serif;cursor:pointer;}
   .reset.yes{color:#f26d6d;border-color:#5a2b2b;}
   .reset-confirm{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);}
+  .tr-wrap{padding:12px 16px 26px;}
+  .tr-sync{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:14px;}
+  .tr-btn{background:var(--panel);border:1px solid var(--line);color:var(--text);font:600 12.5px 'Inter',sans-serif;
+          padding:8px 14px;border-radius:8px;cursor:pointer;}
+  .tr-btn.primary{background:#3ed99b;border-color:#3ed99b;color:#12210f;}
+  .tr-msg{font-size:11.5px;color:var(--muted);flex:1;min-width:150px;}
+  .tr-bootstrap{font-size:11px;color:var(--gold);border:1px solid #5a4a2b;background:rgba(245,196,81,.07);
+                padding:8px 11px;border-radius:8px;margin-bottom:14px;line-height:1.45;}
+  .tr-sec{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.08em;font-size:12.5px;
+          color:var(--text);padding-bottom:7px;border-bottom:1px solid var(--line);margin:18px 0 9px;
+          display:flex;justify-content:space-between;align-items:center;}
+  .tr-sec span{font-family:'Inter',sans-serif;font-size:11px;letter-spacing:0;color:var(--muted);text-transform:none;}
+  .tr-needs{display:flex;gap:6px;flex-wrap:wrap;}
+  .tr-need{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:20px;font-size:11.5px;
+           font-weight:600;border:1px solid var(--line);background:var(--panel);}
+  .tr-need .lbl{font-family:'Oswald',sans-serif;letter-spacing:.04em;}
+  .tr-need.need{border-color:#6b3535;color:#f28b8b;}
+  .tr-need.surplus{border-color:#2f5a3a;color:#6fdca6;}
+  .tr-card{border:1px solid var(--line);background:var(--panel);border-radius:10px;padding:12px;margin-bottom:10px;}
+  .tr-head2{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:9px;}
+  .tr-opp{font-size:12px;color:var(--muted);}
+  .tr-gain{font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;color:#3ed99b;}
+  .tr-side{display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-size:13px;}
+  .tr-dir{flex:none;width:44px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding-top:3px;}
+  .tr-plist{flex:1;display:flex;flex-direction:column;gap:3px;}
+  .tr-p{display:flex;align-items:center;gap:7px;}
+  .tr-ptag{flex:none;width:30px;text-align:center;padding:2px 0;border-radius:4px;font-family:'Oswald',sans-serif;
+           font-weight:700;font-size:10px;color:#1d2d1b;}
+  .tr-pname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .tr-ppw{font-size:11px;color:var(--muted);flex:none;}
+  .tr-why{font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);}
+  .tr-why b{color:var(--text);font-weight:600;}
+  .tr-lineup{display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid #243021;font-size:13px;}
+  .tr-slot{flex:none;min-width:42px;text-align:center;padding:3px 6px;border-radius:5px;font-family:'Oswald',sans-serif;
+           font-weight:700;font-size:10px;letter-spacing:.04em;border:1px solid var(--line);color:var(--muted);}
+  .tr-weak{color:#f28b8b;}
+  .tr-mode{display:flex;gap:0;margin-bottom:12px;border:1px solid var(--line);border-radius:9px;overflow:hidden;}
+  .tr-mode button{flex:1;padding:9px 8px;background:var(--panel);border:0;color:var(--muted);
+                  font:600 12px 'Inter',sans-serif;cursor:pointer;line-height:1.35;}
+  .tr-mode button.on{background:var(--gold);color:#1d2d1b;}
+  .tr-mode small{display:block;font-weight:500;font-size:10px;opacity:.8;}
+  .tr-sos{flex:none;font-size:10px;letter-spacing:.5px;color:var(--muted);width:34px;text-align:right;}
+  .tr-sos.good{color:#6fdca6;}
+  .tr-sos.bad{color:#f28b8b;}
+  .tr-stamp{font-size:10.5px;color:#7c8c73;margin-top:14px;line-height:1.5;}
 </style>
 </head>
 <body>
@@ -120,7 +165,10 @@ const state = {
   BOARDS:{},
   live:{ on:false, connecting:false, error:"", panelOpen:false,
          leagueId:"1388267219577761792", username:"Meneertje", draftInput:"",
-         draftId:null, myUserId:null, picks:{}, count:0, matched:0, timer:null, index:null }
+         draftId:null, myUserId:null, picks:{}, count:0, matched:0, timer:null, index:null },
+  ros:null,
+  tr:{ syncing:false, error:"", synced:false, rosters:null, users:null, league:null,
+       myRosterId:null, suggestions:[], posFilter:"ALL", lastSync:null, valueMode:"playoff" }
 };
 
 function loadDrafted(){
@@ -342,10 +390,13 @@ function render(){
   const mt=computeMyTeam(cfg, statusMap);
   vs.append(el("button",{class:"viewbtn"+(state.view==="team"?" on":""), onclick:()=>{state.view="team";render();}},
     "My Team"+(mt.count?" · "+mt.count:"")));
+  if(state.board==="redraft")
+    vs.append(el("button",{class:"viewbtn"+(state.view==="trades"?" on":""), onclick:()=>{state.view="trades";render();}},"Trades"));
   head.append(vs);
   app.append(head);
 
-  if(state.view==="board") renderBoard(app, cfg, statusMap);
+  if(state.view==="trades") renderTrades(app);
+  else if(state.view==="board") renderBoard(app, cfg, statusMap);
   else renderTeam(app, cfg, mt);
 
   // footer
@@ -467,6 +518,324 @@ render=function(){ const hadFocus=document.activeElement && document.activeEleme
   if(hadFocus){ const s=document.querySelector(".search"); if(s){ s.focus(); if(pos!=null) s.setSelectionRange(pos,pos);} }
 };
 
+// ===================== TRADE ADVISOR =====================
+const ROS_IDX = { byName:{} };
+function buildRosIndex(){
+  ROS_IDX.byName = {};
+  if(!state.ros) return;
+  state.ros.players.forEach(p=>{
+    const k = p.pos==="DEF" ? "def:"+tnorm(p.team) : nname(p.name)+"|"+p.pos;
+    ROS_IDX.byName[k] = p;
+  });
+}
+// Sleeper player record -> our ROS value
+function rosFor(sp){
+  if(!sp) return null;
+  if(sp.pos==="DEF") return ROS_IDX.byName["def:"+tnorm(sp.team)] || null;
+  return ROS_IDX.byName[ nname(sp.name)+"|"+sp.pos ] || null;
+}
+const REPLACEMENT = { QB:8, RB:3, WR:3, TE:2.5, DEF:4 };
+function computePpw(sp){ const r=rosFor(sp); return r ? r.ppw : (REPLACEMENT[sp.pos] || 3); }
+function computePpwP(sp){ const r=rosFor(sp); return r ? (r.ppwP!==undefined?r.ppwP:r.ppw) : (REPLACEMENT[sp.pos] || 3); }
+function sosP(sp){ const r=rosFor(sp); return r && r.sosP!==null && r.sosP!==undefined ? r.sosP : null; }
+// value is resolved once per player at sync time; the trade loops run millions of
+// comparisons and re-normalising names inside them made this crawl on mobile
+function ppw(sp){
+  if(state.tr.valueMode==="playoff") return sp._vp !== undefined ? sp._vp : (sp._vp = computePpwP(sp));
+  return sp._v !== undefined ? sp._v : (sp._v = computePpw(sp));
+}
+
+// cache Sleeper's player dictionary (trimmed) so we don't refetch 5MB every sync
+async function loadSleeperPlayers(){
+  const KEY="sleeper-players-v2";
+  try{
+    const raw=localStorage.getItem(KEY);
+    if(raw){ const o=JSON.parse(raw); if(o.t && (Date.now()-o.t) < 7*864e5) return o.m; }
+  }catch(e){}
+  const all = await sjson(SLEEPER+"/players/nfl");
+  const m={};
+  for(const id in all){
+    const p=all[id]; if(!p) continue;
+    let pos=(p.position||"").toUpperCase();
+    if(pos==="DST") pos="DEF";
+    if(!["QB","RB","WR","TE","DEF"].includes(pos)) continue;
+    const nm = pos==="DEF" ? ((p.last_name||p.first_name||id)+" D/ST")
+                           : ((p.first_name||"")+" "+(p.last_name||"")).trim();
+    m[id]=[nm,pos,(p.team||"")];
+  }
+  try{ localStorage.setItem(KEY, JSON.stringify({t:Date.now(), m})); }catch(e){}
+  return m;
+}
+
+// best possible starting lineup value for a set of players
+function lineupOf(players, slots){
+  const used=new Set(); const out=[];
+  slots.forEach((s,i)=>{
+    let best=null, bi=-1;
+    players.forEach((p,j)=>{
+      if(used.has(j)) return;
+      if(!s.eligible.includes(p.pos)) return;
+      if(!best || ppw(p)>ppw(best)){ best=p; bi=j; }
+    });
+    if(bi>=0) used.add(bi);
+    out.push({slot:s.slot, player:best});
+  });
+  const val = out.reduce((a,x)=> a + (x.player?ppw(x.player):0), 0);
+  return { slots:out, value:val };
+}
+const lineupVal = (players, slots) => lineupOf(players, slots).value;
+// Depth is not worthless: a bench player carries insurance, bye cover and trade capital.
+// Without this the engine happily tosses in your backup QB for free.
+const BENCH_W = 0.3;
+function rosterValue(players, slots){
+  const lu = lineupOf(players, slots);
+  const starting = new Set(lu.slots.filter(s=>s.player).map(s=>s.player));
+  const bench = players.filter(p=>!starting.has(p)).reduce((a,p)=>a+ppw(p),0);
+  return lu.value + BENCH_W*bench;
+}
+const rawOf = arr => arr.reduce((a,p)=>a+ppw(p),0);
+
+async function tradeSync(){
+  const T=state.tr; T.syncing=true; T.error=""; render();
+  try{
+    const lid = (String(state.live.leagueId).match(/(\d{6,})/)||[])[1] || state.live.leagueId;
+    const [league, rosters, users, pmap] = await Promise.all([
+      sjson(SLEEPER+"/league/"+lid),
+      sjson(SLEEPER+"/league/"+lid+"/rosters"),
+      sjson(SLEEPER+"/league/"+lid+"/users"),
+      loadSleeperPlayers()
+    ]);
+    let myUid = state.live.myUserId || await resolveUser(state.live.username);
+    state.live.myUserId = myUid;
+    const nameOf={}; (users||[]).forEach(u=>{
+      nameOf[u.user_id] = (u.metadata && u.metadata.team_name) || u.display_name || "Team";
+    });
+    const teams = (rosters||[]).map(r=>({
+      roster_id:r.roster_id, owner_id:r.owner_id,
+      name: nameOf[r.owner_id] || ("Roster "+r.roster_id),
+      wins:(r.settings&&r.settings.wins)||0, losses:(r.settings&&r.settings.losses)||0,
+      players:(r.players||[]).map(id=>{
+        const e=pmap[id]; return e ? {id, name:e[0], pos:e[1], team:e[2]} : null;
+      }).filter(Boolean)
+    }));
+    teams.forEach(t=>t.players.forEach(p=>{ p._v = computePpw(p); p._vp = computePpwP(p); }));
+    const mine = teams.find(t=>t.owner_id===myUid);
+    if(!mine) throw new Error("couldn't find your roster \u2014 check the username in \u2699");
+    T.league=league; T.rosters=teams; T.myRosterId=mine.roster_id;
+    T.synced=true; T.syncing=false; T.lastSync=Date.now();
+    buildSuggestions();
+  }catch(e){
+    T.syncing=false; T.synced=false; T.error=String(e.message||e);
+  }
+  render();
+}
+
+function slotsOf(){ return state.BOARDS.redraft.meta.starters; }
+
+function posCount(players,pos){ return players.filter(p=>p.pos===pos).length; }
+
+function buildSuggestions(){
+  const T=state.tr; if(!T.rosters) return;
+  const slots=slotsOf();
+  const me=T.rosters.find(t=>t.roster_id===T.myRosterId);
+  const myLuBase=lineupVal(me.players, slots);
+  const myRvBase=rosterValue(me.players, slots);
+  const out=[];
+  const rank=(t)=>t.players.slice().sort((a,b)=>ppw(b)-ppw(a));
+  const myTop=rank(me).slice(0,18);
+
+  T.rosters.forEach(opp=>{
+    if(opp.roster_id===T.myRosterId) return;
+    const oppRvBase=rosterValue(opp.players, slots);
+    const theirTop=rank(opp).slice(0,18);
+
+    const consider=(give,get)=>{
+      const giveRaw=rawOf(give), getRaw=rawOf(get);
+      // you have to pay roughly market price or nobody replies
+      if(giveRaw < 0.85*getRaw) return;
+      const newMine=me.players.filter(p=>!give.includes(p)).concat(get);
+      const newOpp=opp.players.filter(p=>!get.includes(p)).concat(give);
+      const lineupGain=lineupVal(newMine,slots)-myLuBase;
+      const myGain=rosterValue(newMine,slots)-myRvBase;
+      const theirGain=rosterValue(newOpp,slots)-oppRvBase;
+      if(lineupGain>0.3 && myGain>0.2 && theirGain>0.3){
+        out.push({opp:opp.name, oppId:opp.roster_id, give:give.slice(), get:get.slice(),
+                  lineupGain:+lineupGain.toFixed(2), myGain:+myGain.toFixed(2),
+                  theirGain:+theirGain.toFixed(2), giveRaw:+giveRaw.toFixed(1), getRaw:+getRaw.toFixed(1)});
+      }
+    };
+    myTop.forEach(a=> theirTop.forEach(b=> consider([a],[b]) ));
+    for(let i=0;i<myTop.length;i++)
+      for(let j=i+1;j<myTop.length;j++)
+        theirTop.forEach(b=> consider([myTop[i],myTop[j]],[b]) );
+  });
+
+  out.sort((x,y)=> (y.lineupGain-x.lineupGain) || (y.myGain-x.myGain));
+
+  // drop any 2-for-1 where the 1-for-1 subset already does as well (no free throw-ins)
+  const bySingle={};
+  out.forEach(t=>{ if(t.give.length===1){
+    const k=t.oppId+"|"+t.get[0].name;
+    if(!(k in bySingle) || t.lineupGain>bySingle[k]) bySingle[k]=t.lineupGain;
+  }});
+  const pruned=out.filter(t=>{
+    if(t.give.length<2) return true;
+    const k=t.oppId+"|"+t.get[0].name;
+    return !(k in bySingle) || t.lineupGain > bySingle[k]+0.25;
+  });
+
+  // one offer per target player, best few per opponent
+  const seen=new Set(), perOpp={}, kept=[];
+  for(const t of pruned){
+    const key=t.oppId+"|"+t.get.map(p=>p.name).join("+");
+    if(seen.has(key)) continue;
+    seen.add(key);
+    perOpp[t.oppId]=(perOpp[t.oppId]||0)+1;
+    if(perOpp[t.oppId]<=3) kept.push(t);
+    if(kept.length>=24) break;
+  }
+  T.suggestions=kept;
+}
+
+function myNeeds(){
+  const T=state.tr; const slots=slotsOf();
+  const me=T.rosters.find(t=>t.roster_id===T.myRosterId);
+  const lu=lineupOf(me.players, slots);
+  const startersByPos={};
+  lu.slots.forEach(s=>{ if(s.player) startersByPos[s.player.pos]=(startersByPos[s.player.pos]||0)+1; });
+  const res=[];
+  ["QB","RB","WR","TE","DEF"].forEach(pos=>{
+    const rostered=posCount(me.players,pos);
+    const starting=startersByPos[pos]||0;
+    const bench=rostered-starting;
+    const startVals=lu.slots.filter(s=>s.player&&s.player.pos===pos).map(s=>ppw(s.player));
+    const weakest=startVals.length?Math.min(...startVals):0;
+    let kind="";
+    if(starting>0 && weakest < {QB:17,RB:11,WR:11,TE:8,DEF:7}[pos]) kind="need";
+    else if(bench>=2 && ["RB","WR"].includes(pos)) kind="surplus";
+    res.push({pos, rostered, starting, bench, weakest:+weakest.toFixed(1), kind});
+  });
+  return {needs:res, lineup:lu};
+}
+
+function whyLine(t){
+  const giveP=t.give.map(p=>p.pos).join("+");
+  const getP=t.get[0].pos;
+  if(t.give.length>1) return "Consolidates "+giveP+" depth into a starting "+getP+". Bench points don't score, so trading two rotational pieces for one starter is usually the cleanest gain.";
+  return "Straight swap that upgrades your starting "+getP+" while giving them the "+giveP+" help their lineup is missing.";
+}
+
+function sosPip(p){
+  const s=sosP(p);
+  if(s===null) return el("span",{class:"tr-sos"},"");
+  const cls = s>=4 ? "tr-sos good" : (s<=1 ? "tr-sos bad" : "tr-sos");
+  return el("span",{class:cls, title:"Playoff schedule "+s+"/5"}, "\u25cf".repeat(Math.max(1,s)));
+}
+
+function renderTrades(app){
+  const T=state.tr;
+  const wrap=el("div",{class:"tr-wrap"});
+
+  if(state.ros && state.ros.meta.is_bootstrap){
+    wrap.append(el("div",{class:"tr-bootstrap"},
+      "Values are bootstrapped from preseason rankings, not a true rest-of-season feed. Directionally useful, but swap in a FantasyPros ROS export before trusting the fine margins."));
+  }
+
+  const sync=el("div",{class:"tr-sync"});
+  sync.append(el("button",{class:"tr-btn"+(T.synced?"":" primary"), onclick:tradeSync},
+    T.syncing ? "Syncing\u2026" : (T.synced ? "Refresh league" : "Sync league")));
+  let msg="";
+  if(T.error) msg="Couldn't sync: "+T.error;
+  else if(T.syncing) msg="Pulling rosters from Sleeper\u2026";
+  else if(T.synced) msg=T.rosters.length+" teams synced";
+  else msg="Pulls every roster in your league from Sleeper.";
+  sync.append(el("span",{class:"tr-msg"}, msg));
+  wrap.append(sync);
+
+  if(!T.synced){ app.append(wrap); return; }
+
+  const modes=el("div",{class:"tr-mode"});
+  const mk=(key,label,sub)=>{
+    const b=el("button",{class:(T.valueMode===key?"on":""),
+      onclick:()=>{ state.tr.valueMode=key; buildSuggestions(); render(); }}, label);
+    b.append(el("small",{},sub)); return b;
+  };
+  modes.append(mk("playoff","Playoff weeks","weeks 15-17 schedule"));
+  modes.append(mk("ros","Rest of season","every week from here"));
+  wrap.append(modes);
+
+  const {needs, lineup} = myNeeds();
+
+  wrap.append(el("div",{class:"tr-sec"}, el("b",{},"Your starting lineup"),
+    el("span",{}, lineup.value.toFixed(1)+" pts/wk")));
+  const weakest=Math.min(...lineup.slots.filter(s=>s.player).map(s=>ppw(s.player)));
+  lineup.slots.forEach(s=>{
+    const row=el("div",{class:"tr-lineup"});
+    row.append(el("span",{class:"tr-slot"}, s.slot));
+    if(s.player){
+      const isWeak=ppw(s.player)===weakest;
+      row.append(el("span",{class:"tr-ptag", style:"background:"+(POS_COLOR[s.player.pos]||"#7a8697")}, s.player.pos));
+      row.append(el("span",{class:"tr-pname"+(isWeak?" tr-weak":"")}, s.player.name));
+      row.append(el("span",{class:"tr-ppw"}, ppw(s.player).toFixed(1)));
+      row.append(sosPip(s.player));
+    } else row.append(el("span",{class:"tr-pname", style:"color:var(--muted);font-style:italic"},"empty"));
+    wrap.append(row);
+  });
+
+  wrap.append(el("div",{class:"tr-sec"}, el("b",{},"Position read")));
+  const nd=el("div",{class:"tr-needs"});
+  needs.forEach(n=>{
+    const c=el("span",{class:"tr-need"+(n.kind?" "+n.kind:"")});
+    c.append(el("span",{class:"lbl"}, n.pos));
+    c.append(el("span",{}, n.starting+"/"+n.rostered+(n.kind==="need"?" weak":(n.kind==="surplus"?" deep":""))));
+    nd.append(c);
+  });
+  wrap.append(nd);
+
+  wrap.append(el("div",{class:"tr-sec"}, el("b",{},"Suggested trades"),
+    el("span",{}, T.suggestions.length+" that help both sides")));
+
+  const chips=el("div",{class:"chips", style:"margin-bottom:10px"});
+  ["ALL","QB","RB","WR","TE"].forEach(p=>{
+    chips.append(el("button",{class:"chip"+(T.posFilter===p?" on":""),
+      onclick:()=>{state.tr.posFilter=p;render();}}, p==="ALL"?"All":"Get "+p));
+  });
+  wrap.append(chips);
+
+  const list=T.suggestions.filter(t=> T.posFilter==="ALL" || t.get.some(p=>p.pos===T.posFilter));
+  if(!list.length) wrap.append(el("p",{class:"empty"},"No trade here clears the bar for both sides. Try another position, or refresh after some games."));
+
+  list.forEach(t=>{
+    const card=el("div",{class:"tr-card"});
+    card.append(el("div",{class:"tr-head2"},
+      el("span",{class:"tr-opp"}, t.opp),
+      el("span",{class:"tr-gain"}, "+"+t.lineupGain.toFixed(1)+" pts/wk")));
+    const side=(label,arr)=>{
+      const r=el("div",{class:"tr-side"});
+      r.append(el("span",{class:"tr-dir"}, label));
+      const pl=el("div",{class:"tr-plist"});
+      arr.forEach(p=>{
+        const line=el("div",{class:"tr-p"});
+        line.append(el("span",{class:"tr-ptag", style:"background:"+(POS_COLOR[p.pos]||"#7a8697")}, p.pos));
+        line.append(el("span",{class:"tr-pname"}, p.name));
+        line.append(el("span",{class:"tr-ppw"}, ppw(p).toFixed(1)));
+        line.append(sosPip(p));
+        pl.append(line);
+      });
+      r.append(pl); return r;
+    };
+    card.append(side("You get", t.get));
+    card.append(side("You give", t.give));
+    card.append(el("div",{class:"tr-why"},
+      el("b",{},"Why: "), whyLine(t),
+      el("br",{}), el("b",{},"Their side: "), "+"+t.theirGain.toFixed(1)+" roster value, so there's a reason to say yes.",
+      el("br",{}), el("b",{},"Balance: "), "you send "+t.giveRaw.toFixed(1)+" of weekly output, you get back "+t.getRaw.toFixed(1)+"."));
+    wrap.append(card);
+  });
+
+  app.append(wrap);
+}
+
 async function boot(){
   loadDrafted();
   try{ state.live.leagueId=localStorage.getItem("sleeper-league")||state.live.leagueId;
@@ -475,6 +844,7 @@ async function boot(){
   const [r,d] = await Promise.all([loadBoard("redraft"), loadBoard("dynasty")]);
   state.BOARDS.redraft = r; state.BOARDS.dynasty = d;
   buildLiveIndex();
+  try{ state.ros = await loadBoard("ros"); buildRosIndex(); }catch(e){ state.ros=null; }
   render();
   try{ if(localStorage.getItem("sleeper-connected")==="1") sleeperConnect(); }catch(e){}
 }
